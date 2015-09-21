@@ -18,6 +18,18 @@ public class SketchBase
 	{
 		// deliberately left blank
 	}
+
+	public static int getIntColor(Point2D p, String Type)
+	{
+		if(Type == "Red") 
+			return p.c.getBRGUint8()>>16;
+		else if(Type == "Green") 
+			return (p.c.getBRGUint8()>>8 & 255);
+		else if(Type == "Blue") 
+			return (p.c.getBRGUint8() & 255);
+		
+		return -1;
+	}
 	
 	// draw a point
 	public static void drawPoint(BufferedImage buff, Point2D p)
@@ -26,39 +38,57 @@ public class SketchBase
 	}
 	
 	//next point for line with no slope
-	private static PointData NoSlopeNextPoint(Point2D p1, Point2D p2, PointData Current) {
-		int iy;
-		float icR, icG, icB;
-		PointData step = Current;
+	private static void NoSlopeNextPoint(Point2D p1, Point2D p2, PointData Current) {
+		int iy, R, G, B, dred, dgreen, dblue;
 		
+		int dy = Math.abs(p2.y - p1.y);
 		iy = (p2.y > p1.y) ? 1 : -1;
-			
+		
+		dred = Math.abs(getIntColor(p2, "Red") - getIntColor(p1, "Red"));
+		dgreen = Math.abs(getIntColor(p2, "Green") - getIntColor(p1, "Green"));
+		dblue = Math.abs(getIntColor(p2, "Blue") - getIntColor(p1, "Blue"));
+		
 		//set color and get next point	
-		if(Current.Smooth) {
-			icR = p1.c.r + (p2.c.r - p1.c.r) * (float)(step.Point.y - p1.y)/(p2.y - p1.y);
-			icG = p1.c.g + (p2.c.g - p1.c.g) * (float)(step.Point.y - p1.y)/(p2.y - p1.y);
-			icB = p1.c.b + (p2.c.b - p1.c.b) * (float)(step.Point.y - p1.y)/(p2.y - p1.y);
+		if(Current.doSmoothShading) {
+			R = dred/dy;
+			Current.RedRemainder += (dred - R*dy);
+			R = getIntColor(Current.Point, "Red") + (Current.RedIncrement)*R;			
+			if(Current.RedRemainder*2 >= dy) {
+				R += Current.RedIncrement;
+				Current.RedRemainder -= dy;
+			}
+
+			G = dgreen/dy;
+			Current.GreenRemainder += (dgreen - G*dy);
+			G = getIntColor(Current.Point, "Green") + (Current.GreenIncrement)*G;			
+			if(Current.GreenRemainder*2 >= dy) {
+				G += Current.GreenIncrement;
+				Current.GreenRemainder -= dy;
+			}
 			
-			step.Point.c.r = icR;
-			step.Point.c.g = icG;
-			step.Point.c.b = icB;	
-			step.Point.y += iy;
+			B = dblue/dy;
+			Current.BlueRemainder += (dblue - B*dy);
+			B = getIntColor(Current.Point, "Blue") + (Current.BlueIncrement)*B;			
+			if(Current.BlueRemainder*2 >= dy) {
+				B += Current.BlueIncrement;
+				Current.BlueRemainder -= dy;
+			}
+			
+			Current.Point.c.r = (float)R/255;
+			Current.Point.c.g = (float)G/255;
+			Current.Point.c.b = (float)B/255;
 		}
 		else {
-			step.Point.c.r = Current.Color.r;
-			step.Point.c.g = Current.Color.g;
-			step.Point.c.b = Current.Color.b;	
-			step.Point.y += iy;
+			Current.Point.c.r = Current.Color.r;
+			Current.Point.c.g = Current.Color.g;
+			Current.Point.c.b = Current.Color.b;			
 		}
-		
-		return step;	
+		Current.Point.y += iy;
 	}
 
 	//next point for line with slope <= 1
-	private static PointData LittleSlopeNextPoint(Point2D p1, Point2D p2, PointData Current) {
-		int ix, iy;
-		float icR, icG, icB;
-		PointData step = Current;
+	private static void LittleSlopeNextPoint(Point2D p1, Point2D p2, PointData Current) {
+		int ix, iy, dred, dgreen, dblue, R, G, B;
 		
 		//calculate general info
 		int dx = Math.abs(p2.x - p1.x);
@@ -66,45 +96,64 @@ public class SketchBase
 
 		ix = (p2.x > p1.x) ? 1 : -1;
 		iy = (p2.y > p1.y) ? 1 : -1;	
-			
+		
+		dred = Math.abs(getIntColor(p2, "Red") - getIntColor(p1, "Red"));
+		dgreen = Math.abs(getIntColor(p2, "Green") - getIntColor(p1, "Green"));
+		dblue = Math.abs(getIntColor(p2, "Blue") - getIntColor(p1, "Blue"));
+		
 		//calculate decision parameter, two*delta_Y and two*delta_Y minus two_delta_X
 		int YY = 2*dy;
 		int YYXX = 2*(dy -dx);
 			
 		//get Next Point	
-		if(step.DecisionParameter < 0) 
-			step.DecisionParameter += YY; 
+		if(Current.DecisionParameter < 0) 
+			Current.DecisionParameter += YY; 
 		else {
-			step.Point.y += iy;
-			step.DecisionParameter += YYXX;
+			Current.Point.y += iy;
+			Current.DecisionParameter += YYXX;
 		}
 	
 		// set color and get next point
-		if(Current.Smooth) {
-			icR = p1.c.r + (p2.c.r - p1.c.r) * (float)(step.Point.x - p1.x)/(p2.x - p1.x);
-			icG = p1.c.g + (p2.c.g - p1.c.g) * (float)(step.Point.x - p1.x)/(p2.x - p1.x);
-			icB = p1.c.b + (p2.c.b - p1.c.b) * (float)(step.Point.x - p1.x)/(p2.x - p1.x);
+		if(Current.doSmoothShading) {
+			R = dred/dx;
+			Current.RedRemainder += (dred - R*dx);
+			R = getIntColor(Current.Point, "Red") + (Current.RedIncrement)*R;			
+			if(Current.RedRemainder*2 >= dx) {
+				R += Current.RedIncrement;
+				Current.RedRemainder -= dx;
+			}
+
+			G = dgreen/dx;
+			Current.GreenRemainder += (dgreen - G*dx);
+			G = getIntColor(Current.Point, "Green") + (Current.GreenIncrement)*G;			
+			if(Current.GreenRemainder*2 >= dx) {
+				G += Current.GreenIncrement;
+				Current.GreenRemainder -= dx;
+			}
 			
-			step.Point.c.r = icR;
-			step.Point.c.g = icG;
-			step.Point.c.b = icB;	
-			step.Point.x += ix;
+			B = dblue/dx;
+			Current.BlueRemainder += (dblue - B*dx);
+			B = getIntColor(Current.Point, "Blue") + (Current.BlueIncrement)*B;			
+			if(Current.BlueRemainder*2 >= dx) {
+				B += Current.BlueIncrement;
+				Current.BlueRemainder -= dx;
+			}
+			
+			Current.Point.c.r = (float)R/255;
+			Current.Point.c.g = (float)G/255;
+			Current.Point.c.b = (float)B/255;
 		}
 		else {
-			step.Point.c.r = Current.Color.r;
-			step.Point.c.g = Current.Color.g;
-			step.Point.c.b = Current.Color.b;	
-			step.Point.x += ix;
+			Current.Point.c.r = Current.Color.r;
+			Current.Point.c.g = Current.Color.g;
+			Current.Point.c.b = Current.Color.b;	
 		}
-
-		return step;
+		Current.Point.x += ix;
 	}
 
 	//next point for line with slope > 1
-	private static PointData LargeSlopeNextPoint(Point2D p1, Point2D p2, PointData Current) {
-		int ix, iy;
-		float icR, icG, icB;
-		PointData step = Current;
+	private static void LargeSlopeNextPoint(Point2D p1, Point2D p2, PointData Current) {
+		int ix, iy, dred, dgreen, dblue, R, G, B;
 		
 		//calculate general info
 		int dx = Math.abs(p2.x - p1.x);
@@ -113,53 +162,72 @@ public class SketchBase
 		ix = (p2.x > p1.x) ? 1 : -1;
 		iy = (p2.y > p1.y) ? 1 : -1;
 		
+		dred = Math.abs(getIntColor(p2, "Red") - getIntColor(p1, "Red"));
+		dgreen = Math.abs(getIntColor(p2, "Green") - getIntColor(p1, "Green"));
+		dblue = Math.abs(getIntColor(p2, "Blue") - getIntColor(p1, "Blue"));
+	
 		//calculate decision parameter, two*delta_Y and two*delta_Y minus two_delta_X
 		int XX = 2*dx;
 		int XXYY = 2*(dx -dy);
 		
 		//get next point 	
-		if(step.DecisionParameter < 0) 
-			step.DecisionParameter += XX; 
+		if(Current.DecisionParameter < 0) 
+			Current.DecisionParameter += XX; 
 		else {
-			step.Point.x += ix;
-			step.DecisionParameter += XXYY;
+			Current.Point.x += ix;
+			Current.DecisionParameter += XXYY;
 		}
 		//set color
-		if(Current.Smooth) {
-			icR = p1.c.r + (p2.c.r - p1.c.r) * (float)(step.Point.y - p1.y)/(p2.y - p1.y);
-			icG = p1.c.g + (p2.c.g - p1.c.g) * (float)(step.Point.y - p1.y)/(p2.y - p1.y);
-			icB = p1.c.b + (p2.c.b - p1.c.b) * (float)(step.Point.y - p1.y)/(p2.y - p1.y);	
+		if(Current.doSmoothShading) {				
+			R = dred/dy;
+			Current.RedRemainder += (dred - R*dy);
+			R = getIntColor(Current.Point, "Red") + (Current.RedIncrement)*R;			
+			if(Current.RedRemainder*2 >= dy) {
+				R += Current.RedIncrement;
+				Current.RedRemainder -= dy;
+			}
+
+			G = dgreen/dy;
+			Current.GreenRemainder += (dgreen - G*dy);
+			G = getIntColor(Current.Point, "Green") + (Current.GreenIncrement)*G;			
+			if(Current.GreenRemainder*2 >= dy) {
+				G += Current.GreenIncrement;
+				Current.GreenRemainder -= dy;
+			}
 			
-			step.Point.c.r = icR;
-			step.Point.c.g = icG;
-			step.Point.c.b = icB;
-			step.Point.y += iy;
+			B = dblue/dy;
+			Current.BlueRemainder += (dblue - B*dy);
+			B = getIntColor(Current.Point, "Blue") + (Current.BlueIncrement)*B;			
+			if(Current.BlueRemainder*2 >= dy) {
+				B += Current.BlueIncrement;
+				Current.BlueRemainder -= dy;
+			}
+			
+			Current.Point.c.r = (float)R/255;
+			Current.Point.c.g = (float)G/255;
+			Current.Point.c.b = (float)B/255;	
 		}
 		else {
-			step.Point.c.r = Current.Color.r;
-			step.Point.c.g = Current.Color.g;
-			step.Point.c.b = Current.Color.b;
-			step.Point.y += iy;
+			Current.Point.c.r = Current.Color.r;
+			Current.Point.c.g = Current.Color.g;
+			Current.Point.c.b = Current.Color.b;
 		}
-			
-		return step;
+		Current.Point.y += iy;
 	}
 	
 	//get Next point
-	@SuppressWarnings("unused")
-	private static PointData NextPoint(Point2D p1, Point2D p2, PointData Current) {
+	private static void NextPoint(Point2D p1, Point2D p2, PointData Current) {
 		if(Current.Slope == -1)
-			return NoSlopeNextPoint(p1, p2, Current);
+			NoSlopeNextPoint(p1, p2, Current);
 		else if(Current.Slope < 1)
-			return LittleSlopeNextPoint(p1, p2, Current);
+			LittleSlopeNextPoint(p1, p2, Current);
 		else 
-			return LargeSlopeNextPoint(p1, p2, Current);
+			LargeSlopeNextPoint(p1, p2, Current);
 	}
 	
 	// draw a line segment
 	public static void drawLine(BufferedImage buff, Point2D p1, Point2D p2)
 	{
-		//System.out.println("x1:" + p1.x +"\ty1:" + p1.y + "\tx2:" + p2.x +"\ty2:" + p2.y);
 		PointData step = new PointData(p1);
 		
 		//calculate general info
@@ -172,13 +240,17 @@ public class SketchBase
 			step.Slope = _Slope;
 		}
 		
+		step.RedIncrement = (p2.c.r > p1.c.r) ? 1 : -1;
+		step.GreenIncrement = (p2.c.g > p1.c.g) ? 1 : -1;
+		step.BlueIncrement = (p2.c.b > p1.c.b) ? 1 : -1;
+		
 		// draw lines with 0 <= slope <= 1
 		if(_Slope <= 1.0 && _Slope >= 0) {
 			step.DecisionParameter = 2*dy - dx;
 				
 			while(step.Point.x != p2.x) {
 				drawPoint(buff, step.Point);
-				step = NextPoint(p1, p2, step);
+				NextPoint(p1, p2, step);
 			}
 			drawPoint(buff, p2);
 		} 
@@ -187,14 +259,14 @@ public class SketchBase
 			
 			while(step.Point.y != p2.y) {
 				drawPoint(buff, step.Point);	
-				step = NextPoint(p1, p2, step);
+				NextPoint(p1, p2, step);
 			}
 			drawPoint(buff, p2);
 		}
 	}
 	
 	// draw random triangle
-	public static void drawTriangle(BufferedImage buff, Point2D p1, Point2D p2, Point2D p3, boolean do_smooth)
+	public static void drawTriangle(BufferedImage buff, Point2D p1, Point2D p2, Point2D p3, boolean do_smooth, boolean do_fill)
 	{	
 		Point2D high, middle, low;
 		ArrayList<Point2D> List = new ArrayList<Point2D>();
@@ -213,14 +285,18 @@ public class SketchBase
 		middle = new Point2D(List.get(1));
 		low = new Point2D(List.get(2));
 		
-		drawFlatBottomTriangle(buff, high, middle, low, do_smooth, p1.c);
-		if(middle.y != low.y)
-			drawFlatTopTriangle(buff, middle, high, low, do_smooth, p1.c);
-
+		if(do_fill) {
+			drawFlatBottomTriangle(buff, high, middle, low, do_smooth, p1.c);
+			if(middle.y != low.y)
+				drawFlatTopTriangle(buff, middle, high, low, do_smooth, p1.c);
+		}
+		else {
+			drawLine(buff, p1, p3);
+			drawLine(buff, p2, p3);
+		}
 	}
 	
 	//draw flat bottom triangle from top to bottom, p1 is top point
-	@SuppressWarnings("unused")
 	private static void drawFlatBottomTriangle(BufferedImage buff, Point2D p1, Point2D p2, Point2D p3, boolean do_smooth, ColorType Color)
 	{	
 		int Increment = p1.y;
@@ -238,8 +314,17 @@ public class SketchBase
 			begin.Slope = LeftSlope;
 		}
 		
+		begin.RedIncrement = (p2.c.r > p1.c.r) ? 1 : -1;
+		begin.GreenIncrement = (p2.c.g > p1.c.g) ? 1 : -1;
+		begin.BlueIncrement = (p2.c.b > p1.c.b) ? 1 : -1;
+		
 		int dx2 = Math.abs(p3.x - p1.x);
 		int dy2 = Math.abs(p3.y - p1.y);
+		
+		end.RedIncrement = (p3.c.r > p1.c.r) ? 1 : -1;
+		end.GreenIncrement = (p3.c.g > p1.c.g) ? 1 : -1;
+		end.BlueIncrement = (p3.c.b > p1.c.b) ? 1 : -1;
+		
 		float RightSlope = -1;
 		
 		if(dx2 != 0) {
@@ -260,22 +345,20 @@ public class SketchBase
 		while(Increment != Boundry) { // scan-line	
 			do {
 				drawPoint(buff, begin.Point);
-				begin = NextPoint(p1, p2, begin);
-			}while(begin.Point.y != Increment+1);
+				NextPoint(p1, p2, begin);
+				}while(begin.Point.y != Increment+1);
 
 			do {
 				drawPoint(buff, end.Point);
-				end = NextPoint(p1, p3, end);
-			}while(end.Point.y != Increment+1);
+				NextPoint(p1, p3, end);
+				}while(end.Point.y != Increment+1);
 			
 			SketchBase.drawLine(buff, begin.Point, end.Point);
-			System.out.println("begin:(" + begin.Point.x + ", " +begin.Point.y + ")\t\tend:(" + end.Point.x +", " + end.Point.y + ")");
 			Increment++;
 		}
 	}
 
 	//draw flat top triangle from bottom to top, p3 is bottom point
-	@SuppressWarnings("unused")
 	private static void drawFlatTopTriangle(BufferedImage buff, Point2D p1, Point2D p2, Point2D p3, boolean do_smooth, ColorType Color)
 	{
 		int Increment = p3.y;
@@ -286,6 +369,11 @@ public class SketchBase
 		//calculate left edge slope and right edge slope
 		int dx1 = Math.abs(p3.x - p1.x);
 		int dy1 = Math.abs(p3.y - p1.y);
+		
+		begin.RedIncrement = (p1.c.r > p3.c.r) ? 1 : -1;
+		begin.GreenIncrement = (p1.c.g > p3.c.g) ? 1 : -1;
+		begin.BlueIncrement = (p1.c.b > p3.c.b) ? 1 : -1;
+		
 		float LeftSlope = -1;
 		if(dx1 != 0) {
 			LeftSlope = (float)dy1/dx1;
@@ -294,6 +382,11 @@ public class SketchBase
 		
 		int dx2 = Math.abs(p3.x - p2.x);
 		int dy2 = Math.abs(p3.y - p2.y);
+		
+		end.RedIncrement = (p2.c.r > p3.c.r) ? 1 : -1;
+		end.GreenIncrement = (p2.c.g > p3.c.g) ? 1 : -1;
+		end.BlueIncrement = (p2.c.b > p3.c.b) ? 1 : -1;
+		
 		float RightSlope = -1;
 		if(dx2 != 0) {
 			RightSlope = (float)dy2/dx2;
@@ -313,16 +406,15 @@ public class SketchBase
 		while(Increment != Boundry) { // scan-line	
 			do {
 				drawPoint(buff, begin.Point);
-				begin = NextPoint(p3, p1, begin);
+				NextPoint(p3, p1, begin);
 			}while(begin.Point.y != Increment-1);
 
 			do {
 				drawPoint(buff, end.Point);
-				end = NextPoint(p3, p2, end);
+				NextPoint(p3, p2, end);
 			}while(end.Point.y != Increment-1);
 			
 			SketchBase.drawLine(buff, begin.Point, end.Point);
-			System.out.println("begin:(" + begin.Point.x + ", " +begin.Point.y + ")\t\tend:(" + end.Point.x +", " + end.Point.y + ")");
 			Increment--;
 		}
 	}

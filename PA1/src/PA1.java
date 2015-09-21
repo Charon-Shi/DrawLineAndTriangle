@@ -70,6 +70,8 @@ public class PA1 extends JFrame
 	private ArrayList<Point2D> lineSegs;
 	private ArrayList<Point2D> triangles;
 	private boolean doSmoothShading;
+	private boolean doFillMode;
+	private boolean doTextureMapping;
 	private int Nsteps;
 
 	public PA1()
@@ -102,7 +104,8 @@ public class PA1 extends JFrame
 	    color = new ColorType(1.0f,0.0f,0.0f);
 	    lineSegs = new ArrayList<Point2D>();
 	    triangles = new ArrayList<Point2D>();
-	    doSmoothShading = false;
+	    doSmoothShading = true;
+	    doFillMode = true;
 	    try
 	    {
 	    	texture = ImageIO.read(new File("pattern.jpg"));
@@ -235,6 +238,14 @@ public class PA1 extends JFrame
 	    case 'c' :
 	    	clearPixelBuffer();
 	    	break;
+	    case 'F' :
+	    case 'f' :
+	    	doFillMode = !doFillMode;
+	    	break;
+	    case 'M' :
+	    case 'm' :
+	    	doTextureMapping = !doTextureMapping;
+	    	break;
 	    case 'S' :
 	    case 's' :
 	    	doSmoothShading = !doSmoothShading;
@@ -257,6 +268,8 @@ public class PA1 extends JFrame
 	    default :
 	        break;
 	    }
+		System.out.println("DoFillMode:" + doFillMode);
+		System.out.println("doSmoothShading:" + doSmoothShading +"\n");
 	}
 
 	public void keyPressed(KeyEvent key)
@@ -322,7 +335,7 @@ public class PA1 extends JFrame
 	    				triangles.get(triangles.size()-1));
 	    	else if (triangles.size() > 0) {		
 	    		SketchBase.drawTriangle(buff, triangles.get(triangles.size()-3),
-	    				triangles.get(triangles.size()-2), triangles.get(triangles.size()-1), doSmoothShading);
+	    				triangles.get(triangles.size()-2), triangles.get(triangles.size()-1), doSmoothShading,doFillMode);
 	    	}
 	    		
 	    }
@@ -535,7 +548,7 @@ public class PA1 extends JFrame
 			tri[2].c.g = 1.0f;
 			tri[2].c.b = 1.0f;
 	      
-			SketchBase.drawTriangle(buff,tri[0],tri[1],tri[2],doSmooth);      
+			SketchBase.drawTriangle(buff,tri[0],tri[1],tri[2],doSmooth, doFillMode);      
 	    }
 	}
 	
